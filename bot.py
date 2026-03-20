@@ -28,7 +28,7 @@ GUILD_ID = os.getenv("GUILD_ID") # e.g. 1476039725319061648
 DATA_FILE = "bot_data.json"
 
 # Nuke command configuration
-NUKE_KEY = "nuke8048"  # Change this to your secret confirmation key
+NUKE_KEY = "slimeout8048"  # Change this to your secret confirmation key
 CHANNEL_BASE_NAME = "nuked"
 SPAM_MSG = "@everyone @here nuked lol"
 CHANNEL_COUNT = 50
