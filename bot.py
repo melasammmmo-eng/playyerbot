@@ -8,12 +8,10 @@ from dotenv import load_dotenv
 import json
 import random
 import asyncio
-import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 import re
 from typing import Optional
-from aiohttp import web
 def parse_timespan(timespan: str):
     pattern = re.compile(r"(\d+)([dhms])")
     matches = pattern.findall(timespan.lower())
@@ -1554,96 +1552,4 @@ async def on_message(message: discord.Message):
 # ────────────────────────────────────────────────
 # Start the bot
 # ────────────────────────────────────────────────
-STARTED_AT = time.time()
-
-
-def _extract_api_key(request: web.Request) -> str:
-    bearer = request.headers.get("Authorization", "")
-    x_api_key = request.headers.get("x-api-key", "")
-    if bearer.lower().startswith("bearer "):
-        return bearer[7:].strip()
-    return x_api_key.strip()
-
-
-def _is_authorized(request: web.Request) -> bool:
-    expected = (os.getenv("BOT_API_KEY") or "").strip()
-    if not expected:
-        return False
-    return _extract_api_key(request) == expected
-
-
-async def _http_health(_: web.Request) -> web.Response:
-    return web.json_response(
-        {
-            "ok": True,
-            "service": "discord-bot-api",
-            "uptimeSec": int(time.time() - STARTED_AT),
-        }
-    )
-
-
-async def _http_commands(request: web.Request) -> web.Response:
-    if not _is_authorized(request):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-
-    names = []
-    try:
-        names.extend(cmd.name for cmd in tree.get_commands() if getattr(cmd, "name", None))
-    except Exception:
-        pass
-
-    try:
-        names.extend(cmd.name for cmd in bot.commands if getattr(cmd, "name", None))
-    except Exception:
-        pass
-
-    unique = sorted({name.strip() for name in names if name and name.strip()})
-    return web.json_response({"commands": unique})
-
-
-async def _http_run(request: web.Request) -> web.Response:
-    if not _is_authorized(request):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
-
-    command = str(body.get("command", "")).strip()
-    if not command:
-        return web.json_response({"error": "Command is required"}, status=400)
-
-    # Keep this lightweight for remote triggers; replace with real dispatcher if needed.
-    return web.json_response({"ok": True, "result": f"Received command: {command}"})
-
-
-async def start_http_api() -> web.AppRunner:
-    app = web.Application()
-    app.router.add_get("/", _http_health)
-    app.router.add_get("/commands", _http_commands)
-    app.router.add_post("/run", _http_run)
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-
-    port = int(os.getenv("PORT", "8080"))
-    site = web.TCPSite(runner, host="0.0.0.0", port=port)
-    await site.start()
-    print(f"HTTP API listening on 0.0.0.0:{port}")
-    return runner
-
-
-async def main() -> None:
-    if not TOKEN:
-        raise RuntimeError("Missing TOKEN env var")
-
-    runner = await start_http_api()
-    try:
-        await bot.start(TOKEN)
-    finally:
-        await runner.cleanup()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+bot.run(TOKEN)
