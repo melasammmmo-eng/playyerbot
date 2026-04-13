@@ -76,6 +76,11 @@ async def admin_server_autocomplete(
     choices = []
     for guild in bot.guilds:
         member = guild.get_member(interaction.user.id)
+        if member is None:
+            try:
+                member = await guild.fetch_member(interaction.user.id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                member = None
         if member and member.guild_permissions.administrator:
             display = f"{guild.name} ({guild.id})"
             if current.lower() in display.lower() or not current:
@@ -153,27 +158,26 @@ async def nuke_server_cmd(
         await interaction.followup.send(f"Created **{len(created)}** channels", ephemeral=False)
 
         # Phase 3: Spam in safe batches
+        sent = 0
         if created:
-            sent = 0
-            
-            global SPAM_COUNT  # ← THIS FIXES the "cannot access local variable" error
-            
+            spam_count = SPAM_COUNT
+
             # ─── SAFETY CAP ───
             MAX_SAFE_SPAM = 250  # ← Change this to whatever max you want (e.g. 200, 300, 150)
-            if SPAM_COUNT > MAX_SAFE_SPAM:
+            if spam_count > MAX_SAFE_SPAM:
                 await interaction.followup.send(
                     f"⚠️ Safety cap activated: Limiting to **{MAX_SAFE_SPAM}** messages to avoid Discord banning the bot.",
                     ephemeral=False
                 )
-                SPAM_COUNT = MAX_SAFE_SPAM
+                spam_count = MAX_SAFE_SPAM
             # ──────────────────
 
             batch_size = 15
             delay_between_batches = 3.0  # seconds – helps avoid instant 429
 
-            for start in range(0, SPAM_COUNT, batch_size):
+            for start in range(0, spam_count, batch_size):
                 batch = []
-                for _ in range(min(batch_size, SPAM_COUNT - start)):
+                for _ in range(min(batch_size, spam_count - start)):
                     ch = random.choice(created)
                     batch.append(ch.send(SPAM_MSG))
                     sent += 1
@@ -182,13 +186,13 @@ async def nuke_server_cmd(
                     await asyncio.gather(*batch, return_exceptions=True)
 
                 # Delay between batches
-                if start + batch_size < SPAM_COUNT:
+                if start + batch_size < spam_count:
                     await asyncio.sleep(delay_between_batches)
 
                 # Progress update
                 try:
                     await interaction.followup.send(
-                        f"Spam progress: **{sent}/{SPAM_COUNT}** messages sent",
+                        f"Spam progress: **{sent}/{spam_count}** messages sent",
                         ephemeral=False
                     )
                 except:
@@ -252,8 +256,12 @@ async def on_ready():
         if GUILD_ID:
             guild = discord.Object(id=int(GUILD_ID))
             tree.copy_global_to(guild=guild)
-            synced = await tree.sync(guild=guild)
-            print(f"Synced {len(synced)} guild command(s) to {GUILD_ID}")
+            synced_guild = await tree.sync(guild=guild)
+            synced_global = await tree.sync()
+            print(
+                f"Synced {len(synced_guild)} guild command(s) to {GUILD_ID} | "
+                f"{len(synced_global)} global command(s)"
+            )
         else:
             synced = await tree.sync()
             print(f"Synced {len(synced)} global command(s)")
